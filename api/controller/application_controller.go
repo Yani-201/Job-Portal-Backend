@@ -126,8 +126,8 @@ func (c *ApplicationController) ApplyForJob(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, response)
 
 	// Parse form data
-	var req domain.ApplyRequest
-	if err := ctx.ShouldBind(&req); err != nil {
+	var applyRequest domain.ApplyRequest
+	if err := ctx.ShouldBind(&applyRequest); err != nil {
 		ctx.JSON(http.StatusBadRequest, domain.ApplicationResponse{
 			Success: false,
 			Message: "Invalid request",
