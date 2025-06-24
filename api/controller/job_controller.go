@@ -8,7 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
-	"go.mongodb.org/mongo-driver/mongo"
 
 	"job-portal-backend/domain"
 	"job-portal-backend/usecase"
@@ -260,16 +259,75 @@ func (c *JobController) ListJobs(ctx *gin.Context) {
 		totalPages = 1
 	}
 
+	// Return paginated response
 	ctx.JSON(http.StatusOK, domain.JobListResponse{
-		Success: true,
-		Message: "Jobs retrieved successfully",
-		Data:    jobs,
-		Meta: &domain.PaginationMeta{
+		Success:    true,
+		Message:    "Jobs retrieved successfully",
+		Data:       jobs,
+		PageNumber: page,
+		PageSize:   len(jobs),
+		TotalItems: total,
+		TotalPages: totalPages,
+		Pagination: &domain.PaginationMeta{
 			Page:       page,
 			Limit:      limit,
 			TotalItems: total,
 			TotalPages: totalPages,
 		},
+	})
+}
+
+// GetMyJobs handles GET /api/v1/me/jobs
+// User Story 8: View My Posted Jobs (Company Only)
+func (c *JobController) GetMyJobs(ctx *gin.Context) {
+	// Get user ID from context
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, domain.JobListResponse{
+			Success: false,
+			Message: "Unauthorized",
+			Errors:  []string{"User not authenticated"},
+		})
+		return
+	}
+
+	// Check if user has company role
+	userRole, exists := ctx.Get("userRole")
+	if !exists || userRole != "company" {
+		ctx.JSON(http.StatusForbidden, domain.JobListResponse{
+			Success: false,
+			Message: "Forbidden",
+			Errors:  []string{"Only company users can view their posted jobs"},
+		})
+		return
+	}
+
+	// Parse pagination parameters
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "10"))
+
+	// Get jobs for the company
+	jobs, total, err := c.jobUseCase.GetJobsByCompanyID(ctx, userID.(string), page, limit)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, domain.JobListResponse{
+			Success: false,
+			Message: "Failed to retrieve jobs",
+			Errors:  []string{err.Error()},
+		})
+		return
+	}
+
+	// Calculate pagination metadata
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+
+	ctx.JSON(http.StatusOK, domain.JobListResponse{
+		Success:    true,
+		Message:    "Jobs retrieved successfully",
+		Data:       jobs,
+		PageNumber: page,
+		PageSize:   len(jobs),
+		TotalItems: int(total),
+		TotalPages: totalPages,
 	})
 }
 
@@ -281,43 +339,43 @@ func (c *JobController) GetJobDetails(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, domain.JobResponse{
 			Success: false,
 			Message: "Job ID is required",
+			Errors:  []string{"Job ID is required in the URL path"},
 		})
 		return
 	}
 
-	// Call use case to get job details
-	job, err := c.jobUseCase.GetJobByID(context.Background(), jobID)
+	// Get job details
+	job, err := c.jobUseCase.GetJobByID(ctx, jobID)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if err.Error() == "job not found" {
 			ctx.JSON(http.StatusNotFound, domain.JobResponse{
 				Success: false,
-				Message: "Job not found",
-				Errors:  []string{"The requested job does not exist"},
+				Message: "Not Found",
+				Errors:  []string{"Job not found"},
 			})
 			return
 		}
 
 		ctx.JSON(http.StatusInternalServerError, domain.JobResponse{
 			Success: false,
-			Message: "Failed to retrieve job details",
+			Message: "Internal Server Error",
 			Errors:  []string{err.Error()},
 		})
 		return
 	}
 
-	// Check if the job is active/published
-	if !job.IsPublished {
-		// Only allow access to the job owner or admin
-		userID, exists := ctx.Get("userID")
-		if !exists || (job.CreatedBy != userID) {
-			// For non-owners, return not found to prevent information disclosure
-			ctx.JSON(http.StatusNotFound, domain.JobResponse{
-				Success: false,
-				Message: "Job not found",
-				Errors:  []string{"The requested job does not exist"},
-			})
-			return
-		}
+	// Check if job is published or if the user is the owner
+	userID, _ := ctx.Get("userID")
+	userRole, _ := ctx.Get("userRole")
+
+	// If job is not published and user is not the owner, return 404
+	if !job.IsPublished && job.CreatedBy != userID && userRole != "admin" {
+		ctx.JSON(http.StatusNotFound, domain.JobResponse{
+			Success: false,
+			Message: "Not Found",
+			Errors:  []string{"Job not found"},
+		})
+		return
 	}
 
 	ctx.JSON(http.StatusOK, domain.JobResponse{

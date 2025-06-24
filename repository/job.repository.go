@@ -16,6 +16,7 @@ type JobRepository interface {
 	CreateJob(ctx context.Context, job *domain.Job) error
 	GetJobByID(ctx context.Context, id string) (*domain.Job, error)
 	ListJobs(ctx context.Context, title, location, companyName string, page, limit int) ([]*domain.Job, int64, error)
+	GetJobsByCompanyID(ctx context.Context, companyID string, page, limit int) ([]*domain.Job, int64, error)
 	UpdateJob(ctx context.Context, id string, update *domain.UpdateJobRequest) error
 	DeleteJob(ctx context.Context, id string) error
 	JobBelongsToUser(ctx context.Context, jobID, userID string) (bool, error)
@@ -139,6 +140,45 @@ func (r *jobRepository) GetJobByID(ctx context.Context, id string) (*domain.Job,
 	}
 
 	return &job, nil
+}
+
+func (r *jobRepository) GetJobsByCompanyID(ctx context.Context, companyID string, page, limit int) ([]*domain.Job, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+
+	skip := (page - 1) * limit
+
+	// Create filter for company ID
+	filter := bson.M{"created_by": companyID}
+
+	// Count total matching documents
+	total, err := r.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Find jobs with pagination
+	opts := options.Find()
+	opts.SetSkip(int64(skip))
+	opts.SetLimit(int64(limit))
+	opts.SetSort(bson.D{{Key: "created_at", Value: -1}}) // Sort by most recent first
+
+	cursor, err := r.collection.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer cursor.Close(ctx)
+
+	var jobs []*domain.Job
+	if err := cursor.All(ctx, &jobs); err != nil {
+		return nil, 0, err
+	}
+
+	return jobs, total, nil
 }
 
 func (r *jobRepository) UpdateJob(ctx context.Context, id string, update *domain.UpdateJobRequest) error {

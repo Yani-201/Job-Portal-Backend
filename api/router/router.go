@@ -76,6 +76,9 @@ func (r *Router) SetupRoutes() *gin.Engine {
 			userGroup := protected.Group("/users")
 			{
 				userGroup.GET("/me", func(c *gin.Context) { r.authController.GetProfile(c) })
+				
+				// User Story 8: Get my posted jobs (company only)
+				userGroup.GET("/me/jobs", middleware.RequireRole("company"), func(c *gin.Context) { r.jobController.GetMyJobs(c) })
 			}
 
 			// Job routes
@@ -93,8 +96,11 @@ func (r *Router) SetupRoutes() *gin.Engine {
 					companyJobs.PUT("/:id", func(c *gin.Context) { r.jobController.UpdateJob(c) })
 					companyJobs.DELETE("/:id", func(c *gin.Context) { r.jobController.DeleteJob(c) })
 
-					// Get applications for a job (company only)
+					// User Story 10: Get applications for a job (company only)
 					companyJobs.GET("/:id/applications", func(c *gin.Context) { r.applicationController.GetJobApplications(c) })
+					
+					// User Story 9: Get job details (public, but with additional info for company owners)
+					companyJobs.GET("/:id/details", func(c *gin.Context) { r.jobController.GetJobDetails(c) })
 				}
 
 				// Application routes

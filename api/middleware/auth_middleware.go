@@ -97,6 +97,32 @@ func AuthMiddleware() gin.HandlerFunc {
 	}
 }
 
+// RequireRole is a middleware that checks if the user has the required role
+func RequireRole(requiredRole string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get user role from context
+		userRole, exists := c.Get(constants.ContextUserRoleKey)
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"success": false,
+				"message": "User role not found in context",
+			})
+			return
+		}
+
+		// Check if user has the required role
+		if userRole != requiredRole {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"message": "Insufficient permissions. Required role: " + requiredRole,
+			})
+			return
+		}
+
+		c.Next()
+	}
+}
+
 // RoleMiddleware checks if the user has the required role
 func RoleMiddleware(requiredRole string) gin.HandlerFunc {
 	return func(c *gin.Context) {

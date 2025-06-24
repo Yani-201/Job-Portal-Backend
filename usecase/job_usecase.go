@@ -5,6 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
+
 	"job-portal-backend/domain"
 	"job-portal-backend/repository"
 )
@@ -14,6 +16,7 @@ type JobUseCase interface {
 	UpdateJob(ctx context.Context, jobID string, req *domain.UpdateJobRequest, userID string) (*domain.JobResponse, error)
 	DeleteJob(ctx context.Context, jobID, userID string) (*domain.JobResponse, error)
 	ListJobs(ctx context.Context, title, location, companyName string, page, limit int) ([]*domain.Job, int64, error)
+	GetJobsByCompanyID(ctx context.Context, companyID string, page, limit int) ([]*domain.Job, int64, error)
 	GetJobByID(ctx context.Context, jobID string) (*domain.Job, error)
 }
 
@@ -152,16 +155,38 @@ func (uc *jobUseCase) ListJobs(ctx context.Context, title, location, companyName
 	return jobs, total, nil
 }
 
+// GetJobsByCompanyID retrieves a paginated list of jobs by company ID
+func (uc *jobUseCase) GetJobsByCompanyID(ctx context.Context, companyID string, page, limit int) ([]*domain.Job, int64, error) {
+	if companyID == "" {
+		return nil, 0, errors.New("company ID is required")
+	}
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+
+	jobs, total, err := uc.repo.GetJobsByCompanyID(ctx, companyID, page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return jobs, total, nil
+}
+
 // GetJobByID retrieves a job by its ID
 func (uc *jobUseCase) GetJobByID(ctx context.Context, jobID string) (*domain.Job, error) {
-	// Validate job ID
 	if jobID == "" {
 		return nil, errors.New("job ID is required")
 	}
 
-	// Call repository to get job by ID
 	job, err := uc.repo.GetJobByID(ctx, jobID)
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, errors.New("job not found")
+		}
 		return nil, err
 	}
 

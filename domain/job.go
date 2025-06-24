@@ -49,10 +49,10 @@ type JobListResponse struct {
 	Success    bool            `json:"success"`
 	Message    string          `json:"message"`
 	Data       interface{}     `json:"data,omitempty"`
-	Meta       *PaginationMeta `json:"meta,omitempty"`
-	PageNumber int             `json:"page_number,omitempty"` // Deprecated: Use Meta instead
-	PageSize   int             `json:"page_size,omitempty"`   // Deprecated: Use Meta instead
-	Total      int64           `json:"total,omitempty"`       // Deprecated: Use Meta instead
+	PageNumber int             `json:"page_number,omitempty"`
+	PageSize   int             `json:"page_size,omitempty"`
+	TotalItems int64           `json:"total_items,omitempty"`
+	TotalPages int             `json:"total_pages,omitempty"`
+	Pagination *PaginationMeta `json:"pagination,omitempty"`
 	Errors     []string        `json:"errors,omitempty"`
 }
-
