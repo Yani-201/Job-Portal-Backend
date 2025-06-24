@@ -11,10 +11,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"job-portal-backend/api/router"
-	"job-portal-backend/config"
-	repository "job-portal-backend/repository"
-	"job-portal-backend/usecase"
+	"Job-Portal-Backend/api/router"
+	"Job-Portal-Backend/config"
 )
 
 func main() {
@@ -39,14 +37,10 @@ func main() {
 	}
 	defer config.Disconnect(mongoClient)
 
-	// Initialize repositories
-	userRepo := repository.NewUserRepository(config.GetDatabase(mongoClient))
+	db := config.GetDatabase(mongoClient)
 
-	// Initialize use cases
-	userUsecase := usecase.NewUserUsecase(userRepo, cfg.JWTSecret)
-
-	// Initialize router
-	appRouter := router.NewRouter(userUsecase)
+	// Initialize router with database connection
+	appRouter := router.NewRouter(db)
 
 	// Create HTTP server
 	srv := &http.Server{
@@ -59,7 +53,6 @@ func main() {
 		log.Printf("Server is running on http://localhost:%s\n", cfg.Port)
 		log.Printf("Environment: %s\n", cfg.Environment)
 		log.Printf("Database: %s\n", cfg.DatabaseName)
-
 
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)

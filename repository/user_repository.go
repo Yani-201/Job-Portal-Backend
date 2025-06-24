@@ -8,7 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 
-	"job-portal-backend/domain"
+	"Job-Portal-Backend/domain"
 )
 
 type UserRepository interface {

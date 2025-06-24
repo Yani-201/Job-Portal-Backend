@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"context"
+	// "context"
 	"net/http"
 	"strings"
 
@@ -33,24 +33,34 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Parse the token
+		// Parse and validate the JWT token
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			// Validate the signing method
+			// Verify the token signing method is HMAC
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, jwt.ErrSignatureInvalid
 			}
-			return []byte("your_jwt_secret"), // Replace with config.JWTSecret
+			// TODO: Replace with config.JWTSecret from environment variables
+			return []byte("your_jwt_secret"), nil
 		})
 
-		if err != nil || !token.Valid {
+		// Handle token validation errors or invalid tokens
+		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"success": false,
-				"message": "Invalid or expired token",
+				"message": "Invalid authentication token: " + err.Error(),
 			})
-			return
+			return // Stop further processing for invalid tokens
 		}
 
-		// Extract claims
+		if !token.Valid {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"success": false,
+				"message": "Expired or invalid token",
+			})
+			return // Stop further processing for invalid tokens
+		}
+
+		// Extract and verify token claims
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
