@@ -24,7 +24,9 @@ func NewRouter(db *mongo.Database) *Router {
 	appRepo := repository.NewApplicationRepository(db)
 
 	// Initialize use cases
-	userUseCase := usecase.NewUserUseCase(userRepo)
+	// TODO: Move JWT secret to config
+	jwtSecret := "your-secret-key" // Replace with your actual JWT secret from config
+	userUseCase := usecase.NewUserUsecase(userRepo, jwtSecret)
 	jobUseCase := usecase.NewJobUseCase(jobRepo)
 	appUseCase := usecase.NewApplicationUseCase(appRepo, jobRepo, userRepo)
 
