@@ -11,8 +11,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"Job-Portal-Backend/api/router"
-	"Job-Portal-Backend/config"
+	"job-portal-backend/api/router"
+	"job-portal-backend/config"
 )
 
 func main() {

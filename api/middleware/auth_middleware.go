@@ -8,8 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 
-	"job-portal-backend/domain"
-	"job-portal-backend/pkg/constants"
+	"Job-Portal-Backend/domain"
+	"Job-Portal-Backend/pkg/constants"
 )
 
 // AuthMiddleware handles JWT authentication
