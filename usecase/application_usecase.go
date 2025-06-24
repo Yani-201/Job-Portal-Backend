@@ -174,10 +174,19 @@ func (uc *applicationUseCase) GetJobApplications(ctx context.Context, jobID, com
 }
 
 func (uc *applicationUseCase) UpdateApplicationStatus(ctx context.Context, applicationID, companyID string, req *domain.UpdateApplicationStatusRequest) (*domain.ApplicationResponse, error) {
-	// Get application
+	// Validate the request
+	if req.Status == "" {
+		return &domain.ApplicationResponse{
+			Success: false,
+			Message: "Validation failed",
+			Errors:  []string{"Status is required"},
+		}, nil
+	}
+
+	// Check if the application exists
 	application, err := uc.appRepo.GetApplicationByID(ctx, applicationID)
 	if err != nil {
-		if err.Error() == "application not found" {
+		if err.Error() == "invalid application ID" || err.Error() == "mongo: no documents in result" {
 			return &domain.ApplicationResponse{
 				Success: false,
 				Message: "Application not found",
@@ -185,6 +194,54 @@ func (uc *applicationUseCase) UpdateApplicationStatus(ctx context.Context, appli
 		}
 		return nil, fmt.Errorf("error getting application: %v", err)
 	}
+
+	// Check if the job exists and is owned by the company
+	job, err := uc.jobRepo.GetJobByID(ctx, application.JobID.Hex())
+	if err != nil {
+		if err.Error() == "job not found" {
+			return &domain.ApplicationResponse{
+				Success: false,
+				Message: "Job not found",
+			}, nil
+		}
+		return nil, fmt.Errorf("error checking job: %v", err)
+	}
+
+	// Verify job ownership
+	if job.CreatedBy != companyID {
+		return &domain.ApplicationResponse{
+			Success: false,
+			Message: "Forbidden",
+			Errors:  []string{"You don't have permission to update this application"},
+		}, nil
+	}
+
+	// Validate status transition
+	if !isValidStatusTransition(application.Status, domain.ApplicationStatus(req.Status)) {
+		return &domain.ApplicationResponse{
+			Success: false,
+			Message: "Invalid status transition",
+			Errors:  []string{fmt.Sprintf("Cannot change status from %s to %s", application.Status, req.Status)},
+		}, nil
+	}
+
+	// Update the application status
+	err = uc.appRepo.UpdateApplicationStatus(ctx, applicationID, domain.ApplicationStatus(req.Status))
+	if err != nil {
+		return nil, fmt.Errorf("error updating application status: %v", err)
+	}
+
+	// In a real application, you might want to send notifications here
+	// e.g., email to the applicant about the status update
+
+	return &domain.ApplicationResponse{
+		Success: true,
+		Message: "Application status updated successfully",
+		Data: map[string]interface{}{
+			"application_id": applicationID,
+			"status":         req.Status,
+		},
+	}, nil
 
 	// Get job to verify ownership
 	job, err := uc.jobRepo.GetJobByID(ctx, application.JobID.Hex())
