@@ -176,7 +176,7 @@ func (c *ApplicationController) ApplyForJob(ctx *gin.Context) {
 		return
 	}
 
-	// Call use case
+	// Call use case to create application
 	response, err := c.appUseCase.ApplyForJob(context.Background(), &req, userID.(string), resumeLink)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, domain.ApplicationResponse{
@@ -185,7 +185,7 @@ func (c *ApplicationController) ApplyForJob(ctx *gin.Context) {
 			Errors:  []string{err.Error()},
 		})
 		return
-	}
+	 }
 
 	if !response.Success {
 		ctx.JSON(http.StatusBadRequest, response)

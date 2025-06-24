@@ -326,12 +326,6 @@ func (c *JobController) GetMyJobs(ctx *gin.Context) {
 		Data:       jobs,
 		PageNumber: page,
 		PageSize:   len(jobs),
-		TotalItems: int(total),
-		TotalPages: totalPages,
-	})
-}
-
-// GetJobDetails handles GET /api/v1/jobs/:id
 func (c *JobController) GetJobDetails(ctx *gin.Context) {
 	// Get job ID from URL
 	jobID := ctx.Param("id")
@@ -364,12 +358,15 @@ func (c *JobController) GetJobDetails(ctx *gin.Context) {
 		return
 	}
 
-	// Check if job is published or if the user is the owner
+	// Get user info from context
 	userID, _ := ctx.Get("userID")
 	userRole, _ := ctx.Get("userRole")
 
+	// Check if job is published or if the user is the owner
+	isOwner := job.CreatedBy == userID
+
 	// If job is not published and user is not the owner, return 404
-	if !job.IsPublished && job.CreatedBy != userID && userRole != "admin" {
+	if !job.IsPublished && !isOwner && userRole != "admin" {
 		ctx.JSON(http.StatusNotFound, domain.JobResponse{
 			Success: false,
 			Message: "Not Found",
@@ -378,9 +375,26 @@ func (c *JobController) GetJobDetails(ctx *gin.Context) {
 		return
 	}
 
+	// Create response DTO
+	response := struct {
+		*domain.Job
+		IsOwner bool `json:"is_owner,omitempty"`
+	}{
+		Job:     job,
+		IsOwner: isOwner,
+	}
+
+	// Add additional fields for job owner
+	if isOwner {
+		// In a real app, you might want to add statistics like:
+		// - Number of applications
+		// - Number of views
+		// - Other relevant metrics
+	}
+
 	ctx.JSON(http.StatusOK, domain.JobResponse{
 		Success: true,
 		Message: "Job retrieved successfully",
-		Data:    job,
+		Data:    response,
 	})
 }
