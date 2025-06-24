@@ -8,7 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"job-portal-backend/domain"
@@ -212,13 +211,18 @@ func (c *JobController) DeleteJob(ctx *gin.Context) {
 	}
 
 	// Call use case to delete job
-	err := c.jobUseCase.DeleteJob(context.Background(), jobID, userID.(string))
+	response, err := c.jobUseCase.DeleteJob(context.Background(), jobID, userID.(string))
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, domain.JobResponse{
 			Success: false,
 			Message: "Failed to delete job",
 			Errors:  []string{err.Error()},
 		})
+		return
+	}
+
+	if !response.Success {
+		ctx.JSON(http.StatusBadRequest, response)
 		return
 	}
 

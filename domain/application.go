@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"mime/multipart"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -27,8 +28,9 @@ type Application struct {
 }
 
 type ApplyRequest struct {
-	JobID       string `json:"job_id" validate:"required"`
-	CoverLetter string `json:"cover_letter,omitempty" validate:"max=2000"`
+	JobID       string                `form:"job_id" validate:"required"`
+	CoverLetter string                `form:"cover_letter,omitempty" validate:"max=2000"`
+	ResumeFile  *multipart.FileHeader `form:"resume" validate:"required"`
 }
 
 type UpdateApplicationStatusRequest struct {

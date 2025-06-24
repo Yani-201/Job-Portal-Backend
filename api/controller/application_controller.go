@@ -2,12 +2,16 @@ package controller
 
 import (
 	"context"
+	"io"
 	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 
 	"job-portal-backend/domain"
 	"job-portal-backend/usecase"
@@ -48,6 +52,78 @@ func (c *ApplicationController) ApplyForJob(ctx *gin.Context) {
 		})
 		return
 	}
+
+	// Parse the multipart form with a max memory of 10MB
+	if err := ctx.Request.ParseMultipartForm(10 << 20); err != nil {
+		ctx.JSON(http.StatusBadRequest, domain.ApplicationResponse{
+			Success: false,
+			Message: "Failed to parse form data",
+			Errors:  []string{err.Error()},
+		})
+		return
+	}
+
+	// Bind the form data to the request struct
+	var req domain.ApplyRequest
+	if err := ctx.ShouldBind(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, domain.ApplicationResponse{
+			Success: false,
+			Message: "Invalid request data",
+			Errors:  []string{err.Error()},
+		})
+		return
+	}
+
+	// Validate the request
+	if err := c.validator.Struct(req); err != nil {
+		errs := make([]string, len(err.(validator.ValidationErrors)))
+		for i, e := range err.(validator.ValidationErrors) {
+			errs[i] = e.Translate(nil)
+		}
+
+		ctx.JSON(http.StatusBadRequest, domain.ApplicationResponse{
+			Success: false,
+			Message: "Validation failed",
+			Errors:  errs,
+		})
+		return
+	}
+
+	// Process the uploaded resume file
+	file, err := req.ResumeFile.Open()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, domain.ApplicationResponse{
+			Success: false,
+			Message: "Failed to process resume file",
+			Errors:  []string{err.Error()},
+		})
+		return
+	}
+	defer file.Close()
+
+	// Upload the resume to Cloudinary
+	resumeURL, err := c.uploadToCloudinary(file, req.ResumeFile)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, domain.ApplicationResponse{
+			Success: false,
+			Message: "Failed to upload resume",
+			Errors:  []string{err.Error()},
+		})
+		return
+	}
+
+	// Call use case to create application
+	response, err := c.appUseCase.ApplyForJob(context.Background(), &req, userID.(string), resumeURL)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, domain.ApplicationResponse{
+			Success: false,
+			Message: "Failed to submit application",
+			Errors:  []string{err.Error()},
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, response)
 
 	// Parse form data
 	var req domain.ApplyRequest
@@ -298,10 +374,32 @@ func (c *ApplicationController) UpdateApplicationStatus(ctx *gin.Context) {
 }
 
 // uploadToCloudinary is a helper function to handle file uploads to Cloudinary
-func uploadToCloudinary(file multipart.File, header *multipart.FileHeader) (string, error) {
-	// TODO: Implement actual file upload to Cloudinary
-	// This is a placeholder implementation
-	// You'll need to use the Cloudinary Go SDK to upload the file
-	// and return the public URL of the uploaded file
-	return "https://example.com/resumes/" + header.Filename, nil
+func (c *ApplicationController) uploadToCloudinary(file multipart.File, header *multipart.FileHeader) (string, error) {
+	// In a real implementation, you would upload the file to Cloudinary here
+	// This is a simplified version that saves the file locally for demonstration
+
+	// Generate a unique filename
+	ext := filepath.Ext(header.Filename)
+	filename := uuid.New().String() + ext
+
+	// Create the uploads folder if it doesn't exist
+	if err := os.MkdirAll("uploads", 0755); err != nil {
+		return "", err
+	}
+
+	// Create a new file in the uploads directory
+	dst, err := os.Create(filepath.Join("uploads", filename))
+	if err != nil {
+		return "", err
+	}
+	defer dst.Close()
+
+	// Copy the uploaded file to the destination file
+	if _, err := io.Copy(dst, file); err != nil {
+		return "", err
+	}
+
+	// In a real implementation, you would upload to Cloudinary here
+	// For now, we'll just return a placeholder URL
+	return "/uploads/" + filename, nil
 }

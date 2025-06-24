@@ -64,8 +64,8 @@ func (r *Router) SetupRoutes() *gin.Engine {
 		// Auth routes
 		authGroup := v1.Group("/auth")
 		{
-			authGroup.POST("/signup", r.authController.SignUp)
-			authGroup.POST("/login", r.authController.Login)
+			authGroup.POST("/signup", func(c *gin.Context) { r.authController.SignUp(c) })
+			authGroup.POST("/login", func(c *gin.Context) { r.authController.Login(c) })
 		}
 
 		// Protected routes
@@ -75,33 +75,33 @@ func (r *Router) SetupRoutes() *gin.Engine {
 			// User routes
 			userGroup := protected.Group("/users")
 			{
-				userGroup.GET("/me", r.authController.GetProfile)
+				userGroup.GET("/me", func(c *gin.Context) { r.authController.GetProfile(c) })
 			}
 
 			// Job routes
 			jobGroup := protected.Group("/jobs")
 			{
 				// Public routes (no role restriction)
-				jobGroup.GET("", r.jobController.ListJobs)
-				jobGroup.GET("/:id", r.jobController.GetJobDetails)
+				jobGroup.GET("", func(c *gin.Context) { r.jobController.ListJobs(c) })
+				jobGroup.GET("/:id", func(c *gin.Context) { r.jobController.GetJobDetails(c) })
 
 				// Company role required routes
 				companyJobs := jobGroup.Group("")
 				companyJobs.Use(middleware.RequireRole("company"))
 				{
-					companyJobs.POST("", r.jobController.CreateJob)
-					companyJobs.PUT("/:id", r.jobController.UpdateJob)
-					companyJobs.DELETE("/:id", r.jobController.DeleteJob)
+					companyJobs.POST("", func(c *gin.Context) { r.jobController.CreateJob(c) })
+					companyJobs.PUT("/:id", func(c *gin.Context) { r.jobController.UpdateJob(c) })
+					companyJobs.DELETE("/:id", func(c *gin.Context) { r.jobController.DeleteJob(c) })
 
 					// Get applications for a job (company only)
-					companyJobs.GET("/:id/applications", r.applicationController.GetJobApplications)
+					companyJobs.GET("/:id/applications", func(c *gin.Context) { r.applicationController.GetJobApplications(c) })
 				}
 
 				// Application routes
 				applicationGroup := jobGroup.Group("/:id/applications")
 				applicationGroup.Use(middleware.RequireRole("applicant"))
 				{
-					applicationGroup.POST("", r.applicationController.ApplyForJob)
+					applicationGroup.POST("", func(c *gin.Context) { r.applicationController.ApplyForJob(c) })
 				}
 			}
 
@@ -112,14 +112,14 @@ func (r *Router) SetupRoutes() *gin.Engine {
 				applicantRoutes := applicationRoutes.Group("")
 				applicantRoutes.Use(middleware.RequireRole("applicant"))
 				{
-					applicantRoutes.GET("/me", r.applicationController.GetMyApplications)
+					applicantRoutes.GET("/me", func(c *gin.Context) { r.applicationController.GetMyApplications(c) })
 				}
 
 				// Company routes
 				companyRoutes := applicationRoutes.Group("/:id")
 				companyRoutes.Use(middleware.RequireRole("company"))
 				{
-					companyRoutes.PUT("/status", r.applicationController.UpdateApplicationStatus)
+					companyRoutes.PUT("/status", func(c *gin.Context) { r.applicationController.UpdateApplicationStatus(c) })
 				}
 			}
 		}
