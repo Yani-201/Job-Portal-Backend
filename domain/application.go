@@ -50,6 +50,7 @@ type ApplicationListResponse struct {
 	Data       interface{} `json:"data,omitempty"`
 	PageNumber int         `json:"page_number"`
 	PageSize   int         `json:"page_size"`
-	Total      int64       `json:"total"`
+	TotalItems int64       `json:"total_items"`
+	TotalPages int         `json:"total_pages"`
 	Errors     []string    `json:"errors,omitempty"`
 }

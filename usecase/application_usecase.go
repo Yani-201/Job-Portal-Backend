@@ -80,25 +80,52 @@ func (uc *applicationUseCase) ApplyForJob(ctx context.Context, req *domain.Apply
 }
 
 func (uc *applicationUseCase) GetMyApplications(ctx context.Context, applicantID string, page, limit int) (*domain.ApplicationListResponse, error) {
+	// Validate pagination parameters
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	// Get applications for the applicant
 	applications, total, err := uc.appRepo.GetApplicationsByApplicant(ctx, applicantID, page, limit)
 	if err != nil {
 		return nil, fmt.Errorf("error getting applications: %v", err)
 	}
 
-	// Fetch job details for each application
+	// Prepare response data
 	var appResponses []map[string]interface{}
 	for _, app := range applications {
-		job, _ := uc.jobRepo.GetJobByID(ctx, app.JobID.Hex())
-		company, _ := uc.userRepo.GetUserByID(ctx, job.CreatedBy)
+		// Get job details
+		job, err := uc.jobRepo.GetJobByID(ctx, app.JobID.Hex())
+		if err != nil {
+			continue // Skip applications with invalid jobs
+		}
+
+		// Get company details
+		company, err := uc.userRepo.FindByID(ctx, job.CreatedBy)
+		companyName := ""
+		if err == nil && company != nil {
+			companyName = company.Name
+		}
 
 		appResponse := map[string]interface{}{
-			"id":          app.ID.Hex(),
-			"job_title":   job.Title,
-			"company_name": company.Name,
-			"status":      app.Status,
-			"applied_at":  app.AppliedAt,
+			"id":           app.ID.Hex(),
+			"job_id":       app.JobID.Hex(),
+			"job_title":    job.Title,
+			"company_name": companyName,
+			"status":       app.Status,
+			"applied_at":   app.AppliedAt,
+			"resume_link":  app.ResumeLink,
 		}
 		appResponses = append(appResponses, appResponse)
+	}
+
+	// Calculate total pages
+	totalPages := (int(total) + limit - 1) / limit
+	if totalPages < 1 {
+		totalPages = 1
 	}
 
 	return &domain.ApplicationListResponse{
@@ -106,8 +133,9 @@ func (uc *applicationUseCase) GetMyApplications(ctx context.Context, applicantID
 		Message:    "Successfully retrieved applications",
 		Data:       appResponses,
 		PageNumber: page,
-		PageSize:   limit,
-		Total:      total,
+		PageSize:   len(appResponses),
+		TotalItems: total,
+		TotalPages: totalPages,
 	}, nil
 }
 
@@ -141,26 +169,43 @@ func (uc *applicationUseCase) GetJobApplications(ctx context.Context, jobID, com
 		}, nil
 	}
 
+	// Get applications for the job
 	applications, total, err := uc.appRepo.GetJobApplications(ctx, jobID, page, limit)
 	if err != nil {
 		return nil, fmt.Errorf("error getting job applications: %v", err)
 	}
 
-	// Fetch applicant details for each application
+	// Prepare response data
 	var appResponses []map[string]interface{}
 	for _, app := range applications {
-		applicant, _ := uc.userRepo.GetUserByID(ctx, app.ApplicantID)
+		// Get applicant details
+		applicant, err := uc.userRepo.FindByID(ctx, app.ApplicantID)
+		applicantName := ""
+		applicantEmail := ""
+		if err == nil && applicant != nil {
+			applicantName = applicant.Name
+			applicantEmail = applicant.Email
+		}
 
 		appResponse := map[string]interface{}{
-			"id":           app.ID.Hex(),
-			"applicant_id": app.ApplicantID,
-			"applicant":    applicant.Name,
-			"resume_link":  app.ResumeLink,
-			"cover_letter": app.CoverLetter,
-			"status":       app.Status,
-			"applied_at":   app.AppliedAt,
+			"id":             app.ID.Hex(),
+			"job_id":         jobID,
+			"job_title":      job.Title,
+			"applicant_id":   app.ApplicantID,
+			"applicant_name": applicantName,
+			"email":          applicantEmail,
+			"status":         app.Status,
+			"applied_at":     app.AppliedAt,
+			"resume_link":    app.ResumeLink,
+			"cover_letter":   app.CoverLetter,
 		}
 		appResponses = append(appResponses, appResponse)
+	}
+
+	// Calculate total pages
+	totalPages := (int(total) + limit - 1) / limit
+	if totalPages < 1 {
+		totalPages = 1
 	}
 
 	return &domain.ApplicationListResponse{
@@ -168,8 +213,9 @@ func (uc *applicationUseCase) GetJobApplications(ctx context.Context, jobID, com
 		Message:    "Successfully retrieved job applications",
 		Data:       appResponses,
 		PageNumber: page,
-		PageSize:   limit,
-		Total:      total,
+		PageSize:   len(appResponses),
+		TotalItems: total,
+		TotalPages: totalPages,
 	}, nil
 }
 
