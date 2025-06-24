@@ -112,7 +112,15 @@ func (uc *applicationUseCase) GetMyApplications(ctx context.Context, applicantID
 }
 
 func (uc *applicationUseCase) GetJobApplications(ctx context.Context, jobID, companyID string, page, limit int) (*domain.ApplicationListResponse, error) {
-	// Verify job exists and belongs to company
+	// Validate pagination parameters
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	// Check if job exists and is owned by the company
 	job, err := uc.jobRepo.GetJobByID(ctx, jobID)
 	if err != nil {
 		if err.Error() == "job not found" {
@@ -124,10 +132,12 @@ func (uc *applicationUseCase) GetJobApplications(ctx context.Context, jobID, com
 		return nil, fmt.Errorf("error checking job: %v", err)
 	}
 
+	// Verify job ownership
 	if job.CreatedBy != companyID {
 		return &domain.ApplicationListResponse{
 			Success: false,
-			Message: "Unauthorized to view applications for this job",
+			Message: "Forbidden",
+			Errors:  []string{"You don't have permission to view applications for this job"},
 		}, nil
 	}
 

@@ -326,6 +326,19 @@ func (c *JobController) GetMyJobs(ctx *gin.Context) {
 		Data:       jobs,
 		PageNumber: page,
 		PageSize:   len(jobs),
+		TotalItems: total,
+		TotalPages: totalPages,
+		Pagination: &domain.PaginationMeta{
+			Page:       page,
+			Limit:      limit,
+			TotalItems: total,
+			TotalPages: totalPages,
+		},
+	})
+}
+
+// GetJobDetails handles GET /api/v1/jobs/:id/details
+// User Story 9: View Job Details
 func (c *JobController) GetJobDetails(ctx *gin.Context) {
 	// Get job ID from URL
 	jobID := ctx.Param("id")
