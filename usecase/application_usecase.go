@@ -2,9 +2,9 @@ package usecase
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"job-portal-backend/domain"
 	"job-portal-backend/repository"
 )
@@ -234,34 +234,6 @@ func (uc *applicationUseCase) UpdateApplicationStatus(ctx context.Context, appli
 	// In a real application, you might want to send notifications here
 	// e.g., email to the applicant about the status update
 
-	return &domain.ApplicationResponse{
-		Success: true,
-		Message: "Application status updated successfully",
-		Data: map[string]interface{}{
-			"application_id": applicationID,
-			"status":         req.Status,
-		},
-	}, nil
-
-	// Get job to verify ownership
-	job, err := uc.jobRepo.GetJobByID(ctx, application.JobID.Hex())
-	if err != nil {
-		return nil, fmt.Errorf("error getting job: %v", err)
-	}
-
-	// Verify company owns the job
-	if job.CreatedBy != companyID {
-		return &domain.ApplicationResponse{
-			Success: false,
-			Message: "Unauthorized to update this application",
-		}, nil
-	}
-
-	// Update status
-	if err := uc.appRepo.UpdateApplicationStatus(ctx, applicationID, req.Status); err != nil {
-		return nil, fmt.Errorf("error updating application status: %v", err)
-	}
-
 	// Get updated application
 	updatedApp, err := uc.appRepo.GetApplicationByID(ctx, applicationID)
 	if err != nil {
@@ -270,7 +242,32 @@ func (uc *applicationUseCase) UpdateApplicationStatus(ctx context.Context, appli
 
 	return &domain.ApplicationResponse{
 		Success: true,
-		Message: "Successfully updated application status",
+		Message: "Application status updated successfully",
 		Data:    updatedApp,
 	}, nil
+}
+
+// isValidStatusTransition checks if the status transition is valid
+func isValidStatusTransition(currentStatus, newStatus domain.ApplicationStatus) bool {
+	switch currentStatus {
+	case domain.StatusApplied:
+		// Can transition to any status
+		return newStatus == domain.StatusReviewed || 
+		       newStatus == domain.StatusInterview || 
+	       newStatus == domain.StatusRejected || 
+	       newStatus == domain.StatusHired
+	case domain.StatusReviewed:
+		// Can transition to interview, rejected, or hired
+		return newStatus == domain.StatusInterview || 
+	       newStatus == domain.StatusRejected || 
+	       newStatus == domain.StatusHired
+	case domain.StatusInterview:
+		// Can transition to hired or rejected
+		return newStatus == domain.StatusHired || newStatus == domain.StatusRejected
+	case domain.StatusHired, domain.StatusRejected:
+		// Final states, no further transitions allowed
+		return false
+	default:
+		return false
+	}
 }
