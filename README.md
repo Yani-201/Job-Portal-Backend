@@ -41,10 +41,7 @@ A RESTful API for a job portal where companies can post job listings and applica
    ```
 
 3. Set up environment variables:
-   Copy `.env.example` to `.env` and update the values:
-   ```bash
-   cp .env.example .env
-   ```
+
 
 4. Run the application:
    ```bash
